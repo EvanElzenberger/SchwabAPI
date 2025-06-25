@@ -1,0 +1,139 @@
+import requests
+import base64
+from urllib.parse import urlencode
+
+class SchwabAPI:
+    def __init__(self, client_id, client_secret, redirect_uri):
+        # PUT YOUR CREDENTIALS HERE
+        self.client_id = client_id  # Your App Key from Schwab Developer Portal
+        self.client_secret = client_secret  # Your Secret from Schwab Developer Portal
+        self.redirect_uri = redirect_uri  # Your registered redirect URI
+        
+        self.base_url = "https://api.schwabapi.com"
+        self.auth_url = "https://api.schwabapi.com/oauth/authorize"
+        self.token_url = "https://api.schwabapi.com/oauth/token"
+        self.access_token = None
+        self.refresh_token = None
+
+    def get_authorization_url(self):
+        """Generate the authorization URL for OAuth flow"""
+        params = {
+            'client_id': self.client_id,
+            'redirect_uri': self.redirect_uri,
+            'response_type': 'code',
+            'scope': 'read'
+        }
+        return f"{self.auth_url}?{urlencode(params)}"
+
+    def get_access_token(self, authorization_code):
+        """Exchange authorization code for access token"""
+        # Create Basic Auth header
+        credentials = f"{self.client_id}:{self.client_secret}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+        
+        headers = {
+            'Authorization': f'Basic {encoded_credentials}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        
+        data = {
+            'grant_type': 'authorization_code',
+            'code': authorization_code,
+            'redirect_uri': self.redirect_uri
+        }
+        
+        response = requests.post(self.token_url, headers=headers, data=data)
+        
+        if response.status_code == 200:
+            token_data = response.json()
+            self.access_token = token_data['access_token']
+            self.refresh_token = token_data.get('refresh_token')
+            return token_data
+        else:
+            raise Exception(f"Token request failed: {response.status_code} - {response.text}")
+
+    def refresh_access_token(self):
+        """Refresh the access token using refresh token"""
+        if not self.refresh_token:
+            raise Exception("No refresh token available")
+        
+        credentials = f"{self.client_id}:{self.client_secret}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+        
+        headers = {
+            'Authorization': f'Basic {encoded_credentials}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        
+        data = {
+            'grant_type': 'refresh_token',
+            'refresh_token': self.refresh_token
+        }
+        
+        response = requests.post(self.token_url, headers=headers, data=data)
+        
+        if response.status_code == 200:
+            token_data = response.json()
+            self.access_token = token_data['access_token']
+            return token_data
+        else:
+            raise Exception(f"Token refresh failed: {response.status_code} - {response.text}")
+
+    def make_authenticated_request(self, endpoint, method='GET', params=None):
+        """Make an authenticated request to the Schwab API"""
+        if not self.access_token:
+            raise Exception("No access token available. Please authenticate first.")
+        
+        headers = {
+            'Authorization': f'Bearer {self.access_token}',
+            'Accept': 'application/json'
+        }
+        
+        url = f"{self.base_url}{endpoint}"
+        
+        if method == 'GET':
+            response = requests.get(url, headers=headers, params=params)
+        elif method == 'POST':
+            response = requests.post(url, headers=headers, json=params)
+        else:
+            raise Exception(f"Unsupported HTTP method: {method}")
+        
+        return response
+
+    def get_account_info(self):
+        """Get account information"""
+        response = self.make_authenticated_request('/trader/v1/accounts')
+        return response.json() if response.status_code == 200 else response.text
+
+# Example usage:
+if __name__ == "__main__":
+    # ============================================
+    # PUT YOUR CREDENTIALS HERE:
+    # ============================================
+    CLIENT_ID = "YOUR_CLIENT_ID_HERE"          # Your App Key from Schwab
+    CLIENT_SECRET = "YOUR_CLIENT_SECRET_HERE"   # Your Secret from Schwab  
+    REDIRECT_URI = "https://localhost:8080"     # Your registered redirect URI
+    # ============================================
+    
+    # Initialize the API client
+    schwab = SchwabAPI(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI)
+    
+    # Step 1: Get authorization URL
+    auth_url = schwab.get_authorization_url()
+    print(f"Go to this URL to authorize: {auth_url}")
+    
+    # Step 2: After authorization, you'll get a code in your redirect URI
+    # Extract the code from the URL and use it here
+    authorization_code = input("Enter the authorization code from the redirect URL: ")
+    
+    try:
+        # Step 3: Exchange code for access token
+        tokens = schwab.get_access_token(authorization_code)
+        print("Successfully obtained access token!")
+        
+        # Step 4: Make API calls
+        account_info = schwab.get_account_info()
+        print("Account Info:", account_info)
+        
+    except Exception as e:
+        print(f"Error: {e}")
