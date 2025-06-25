@@ -1,0 +1,239 @@
+# Schwab API Connection in R
+# Install required packages if not already installed:
+# install.packages(c("httr", "jsonlite", "base64enc"))
+# How to use it:
+
+# Load the script into RStudio
+# Update your credentials in the marked section
+# Uncomment the main() line at the bottom, or run it manually
+# The script will print an authorization URL - visit it in your browser
+# After authorizing, copy the code from the redirect URL
+# Paste the code when prompted in the R console
+-----------------------------------------------------------------------------
+library(httr)
+library(jsonlite)
+library(base64enc)
+
+# SchwabAPI R6 Class
+SchwabAPI <- R6Class("SchwabAPI",
+  public = list(
+    # PUT YOUR CREDENTIALS HERE
+    client_id = NULL,
+    client_secret = NULL,
+    redirect_uri = NULL,
+    
+    # API endpoints
+    base_url = "https://api.schwabapi.com",
+    auth_url = "https://api.schwabapi.com/oauth/authorize",
+    token_url = "https://api.schwabapi.com/oauth/token",
+    
+    # Tokens
+    access_token = NULL,
+    refresh_token = NULL,
+    
+    # Initialize the API client
+    initialize = function(client_id, client_secret, redirect_uri) {
+      self$client_id <- client_id
+      self$client_secret <- client_secret
+      self$redirect_uri <- redirect_uri
+    },
+    
+    # Generate authorization URL
+    get_authorization_url = function() {
+      params <- list(
+        client_id = self$client_id,
+        redirect_uri = self$redirect_uri,
+        response_type = "code",
+        scope = "read"
+      )
+      
+      query_string <- paste(names(params), params, sep = "=", collapse = "&")
+      auth_url <- paste0(self$auth_url, "?", query_string)
+      return(auth_url)
+    },
+    
+    # Exchange authorization code for access token
+    get_access_token = function(authorization_code) {
+      # Create Basic Auth header
+      credentials <- paste0(self$client_id, ":", self$client_secret)
+      encoded_credentials <- base64encode(charToRaw(credentials))
+      
+      # Prepare headers
+      headers <- add_headers(
+        "Authorization" = paste("Basic", encoded_credentials),
+        "Content-Type" = "application/x-www-form-urlencoded"
+      )
+      
+      # Prepare data
+      body_data <- list(
+        grant_type = "authorization_code",
+        code = authorization_code,
+        redirect_uri = self$redirect_uri
+      )
+      
+      # Make request
+      response <- POST(
+        url = self$token_url,
+        headers,
+        body = body_data,
+        encode = "form"
+      )
+      
+      if (status_code(response) == 200) {
+        token_data <- content(response, "parsed")
+        self$access_token <- token_data$access_token
+        self$refresh_token <- token_data$refresh_token
+        return(token_data)
+      } else {
+        stop(paste("Token request failed:", status_code(response), "-", content(response, "text")))
+      }
+    },
+    
+    # Refresh access token
+    refresh_access_token = function() {
+      if (is.null(self$refresh_token)) {
+        stop("No refresh token available")
+      }
+      
+      # Create Basic Auth header
+      credentials <- paste0(self$client_id, ":", self$client_secret)
+      encoded_credentials <- base64encode(charToRaw(credentials))
+      
+      # Prepare headers
+      headers <- add_headers(
+        "Authorization" = paste("Basic", encoded_credentials),
+        "Content-Type" = "application/x-www-form-urlencoded"
+      )
+      
+      # Prepare data
+      body_data <- list(
+        grant_type = "refresh_token",
+        refresh_token = self$refresh_token
+      )
+      
+      # Make request
+      response <- POST(
+        url = self$token_url,
+        headers,
+        body = body_data,
+        encode = "form"
+      )
+      
+      if (status_code(response) == 200) {
+        token_data <- content(response, "parsed")
+        self$access_token <- token_data$access_token
+        return(token_data)
+      } else {
+        stop(paste("Token refresh failed:", status_code(response), "-", content(response, "text")))
+      }
+    },
+    
+    # Make authenticated API request
+    make_authenticated_request = function(endpoint, method = "GET", params = NULL) {
+      if (is.null(self$access_token)) {
+        stop("No access token available. Please authenticate first.")
+      }
+      
+      # Prepare headers
+      headers <- add_headers(
+        "Authorization" = paste("Bearer", self$access_token),
+        "Accept" = "application/json"
+      )
+      
+      # Construct URL
+      url <- paste0(self$base_url, endpoint)
+      
+      # Make request based on method
+      if (method == "GET") {
+        response <- GET(url, headers, query = params)
+      } else if (method == "POST") {
+        response <- POST(url, headers, body = params, encode = "json")
+      } else {
+        stop(paste("Unsupported HTTP method:", method))
+      }
+      
+      return(response)
+    },
+    
+    # Get account information
+    get_account_info = function() {
+      response <- self$make_authenticated_request("/trader/v1/accounts")
+      
+      if (status_code(response) == 200) {
+        return(content(response, "parsed"))
+      } else {
+        return(content(response, "text"))
+      }
+    }
+  )
+)
+
+# ============================================
+# MAIN SCRIPT - PUT YOUR CREDENTIALS HERE:
+# ============================================
+
+# Your Schwab API credentials
+CLIENT_ID <- "YOUR_CLIENT_ID_HERE"          # Your App Key from Schwab
+CLIENT_SECRET <- "YOUR_CLIENT_SECRET_HERE"   # Your Secret from Schwab  
+REDIRECT_URI <- "https://localhost:8080"     # Your registered redirect URI
+
+# ============================================
+
+# Example usage:
+main <- function() {
+  # Initialize the API client
+  schwab <- SchwabAPI$new(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI)
+  
+  # Step 1: Get authorization URL
+  auth_url <- schwab$get_authorization_url()
+  cat("Go to this URL to authorize:\n")
+  cat(auth_url, "\n\n")
+  
+  # Step 2: Get authorization code from user
+  cat("After authorizing, you'll be redirected to your redirect URI with a 'code' parameter.\n")
+  cat("Copy the code from the URL and enter it below.\n")
+  authorization_code <- readline(prompt = "Enter the authorization code: ")
+  
+  # Step 3: Exchange code for access token
+  tryCatch({
+    tokens <- schwab$get_access_token(authorization_code)
+    cat("Successfully obtained access token!\n")
+    
+    # Step 4: Make API calls
+    cat("Fetching account information...\n")
+    account_info <- schwab$get_account_info()
+    
+    # Print account info (you might want to format this better)
+    cat("Account Info:\n")
+    print(account_info)
+    
+  }, error = function(e) {
+    cat("Error:", e$message, "\n")
+  })
+}
+
+# Helper function to check if required packages are installed
+check_packages <- function() {
+  required_packages <- c("httr", "jsonlite", "base64enc", "R6")
+  missing_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+  
+  if (length(missing_packages) > 0) {
+    cat("Missing required packages:", paste(missing_packages, collapse = ", "), "\n")
+    cat("Please install them using: install.packages(c(", 
+        paste(paste0('"', missing_packages, '"'), collapse = ", "), "))\n")
+    return(FALSE)
+  }
+  return(TRUE)
+}
+
+# Run the main function if packages are available
+if (check_packages()) {
+  # Load R6 for class definition
+  library(R6)
+  
+  # Uncomment the line below to run the example
+  # main()
+  
+  cat("Setup complete! Uncomment the main() line to run the example.\n")
+  cat("Or create a new SchwabAPI instance with: schwab <- SchwabAPI$new(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI)\n")
+}
