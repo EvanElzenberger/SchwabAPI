@@ -1,32 +1,39 @@
-# SchwabAPI
-📈 Charles Schwab API Integration
-This repository contains a Python-based implementation for accessing and interacting with the Charles Schwab Developer API. The project enables users to retrieve account data, portfolio holdings, real-time quotes, and execute trades programmatically. It is designed for retail investors, analysts, and developers looking to automate workflows or integrate Schwab data into their own financial tools.
+# 📈 Charles Schwab API Integration (Python & R)
 
-🔧 Features
-- OAuth 2.0 authentication with Schwab API
+This repository provides a dual-language implementation (Python and R) for connecting to the **Charles Schwab Developer API**. It enables retail investors, data analysts, and developers to access account information, retrieve portfolio data, obtain real-time quotes, and execute trades programmatically.
 
-- Access to account details and balances
+Whether you're building automation scripts, portfolio dashboards, or quantitative models, this repo offers a solid foundation for working with Schwab's API.
 
-- Real-time and historical quote retrieval
+---
 
-- Portfolio and position management
+## 🔧 Features
 
-- Order placement and trading execution
+- OAuth 2.0 authentication flow  
+- Access to account balances and positions  
+- Real-time and historical quote retrieval  
+- Order management and trade execution  
+- Logging and error handling  
+- R and Python scripts for flexible integration
 
-- Error handling and logging for secure API calls
+---
 
-🚀 Use Cases
-- Automating personal investment tracking
+## 🧠 Technologies Used
 
-- Building trading bots or custom dashboards
+- **Python**: `requests`, `pandas`, `flask`
+- **R**: `httr`, `tidyverse`, `jsonlite`
+- **Charles Schwab Developer API**
+- OAuth 2.0 authorization
 
-- Conducting portfolio analysis and rebalancing
+---
 
-- Integrating Schwab data with external tools (e.g., Excel, Power BI)
+## 🚀 Use Cases
 
-🧠 Technologies Used
-- Python (requests, pandas, etc.)
+- Automating investment workflows  
+- Building dashboards and financial models  
+- Backtesting strategies using live account data  
+- Integrating Schwab with Excel, Power BI, or Shiny apps
 
-- Schwab Developer API
+---
 
-- OAuth 2.0
+> ⚠️ _Note: You must have approved developer access to Schwab's API and an active brokerage account to use this integration._
+
