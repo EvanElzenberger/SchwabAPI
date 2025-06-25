@@ -8,7 +8,7 @@ Before running this:
 
 You need to register your application at Schwab Developer Portal
 Install the required package: pip install requests
----
+-----------------------------------------------------
 import requests
 import base64
 from urllib.parse import urlencode
