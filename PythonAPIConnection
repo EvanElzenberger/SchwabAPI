@@ -1,3 +1,14 @@
+Where to put your credentials:
+
+Replace YOUR_CLIENT_ID_HERE with your App Key from the Schwab Developer Portal
+Replace YOUR_CLIENT_SECRET_HERE with your Secret from the Schwab Developer Portal
+Update the REDIRECT_URI if you registered a different one
+
+Before running this:
+
+You need to register your application at Schwab Developer Portal
+Install the required package: pip install requests
+---
 import requests
 import base64
 from urllib.parse import urlencode
